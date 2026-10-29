@@ -1,0 +1,256 @@
+# Permissions Practice Class Work
+
+**Студент:** Zufarof Hojiakbar
+**Группа:** SE1-24 
+**Дата:** 29.10.2026  
+
+---
+
+
+Question 1
+
+Context: A student wants to add photo capture to an app. They immediately wrote the CAMERA permission into the manifest and moved on to the dialog code. A teammate says: “First decide whether a permission is needed at all.”
+
+Task: List the four decisions of the permission workflow from the lecture, in order. Give an example of a case that works without any permission, and explain why that is the best option.
+
+• The four decisions of the workflow:
+	1. Is the access needed at all?
+	2. Is there an alternative that works without permissions?
+	3. Is it an install-time or a runtime permission?
+	4. How should a denial be handled?
+
+• Example without permissions: Using the system intent Intent(MediaStore.ACTION_IMAGE_CAPTURE). The task is handled entirely by the default system camera app rather than ours. This is the best approach because the user does not have to grant camera privileges to our specific app, and the developer has to write minimal boilerplate code.
+
+
+Question 2
+
+
+Context: Your teammate thinks Android permissions are just “one line in the manifest” and writes the same code for every permission.
+Task: Name the three permission categories (install-time, runtime, special) and explain how each one is granted. Show why the category decides how much code you have to write.
+
+• The three categories:
+
+	1. Install-time — Automatically granted by the system at the moment of app installation.
+	2. Runtime — Requires an interactive system pop-up dialog for user consent while the app is actively running.
+	3. Special — Requires redirecting the user deep into the Android system Settings app.
+
+• Code volume: The category directly determines the amount of code required. For install-time permissions, it takes exactly 1 line in the manifest. For runtime/special permissions, you must build state machines, handle app focus shifts, process results/callbacks, and design custom rationale UI layouts.
+
+
+Question 3
+
+
+Context: A developer added INTERNET to the manifest and is now writing a checkSelfPermission check before every network request. In another app the same line was forgotten.
+
+Task: Explain why a normal permission needs no runtime check and no dialog. What exception does the app throw when the manifest line is forgotten? Give the three examples of normal permissions from the lecture.
+
+• Why normal permissions are not checked: The INTERNET permission belongs to the normal (install-time) category. The system automatically grants it during installation; therefore, checking it in code via checkSelfPermission or displaying a runtime prompt dialog is unnecessary.
+• Exception thrown: If you forget to add the permission line to the manifest, the application will crash with a SecurityException.
+• Examples: INTERNET, ACCESS_NETWORK_STATE, BLUETOOTH.
+
+
+Question 4
+
+
+Context: A company has two apps: “Bank” and “Wallet”. Wallet wants to bind to the bank's AccountsService, which is protected by the permission uz.ttpu.bank.permission.READ_ACCOUNTS. A third-party app requests the same permission.
+
+Task: Who is a signature permission granted to? Which protectionLevel is written when you declare it in the manifest? What is the result for Wallet and for the stranger app, and is a dialog shown to the user?
+
+• Who it is granted to: It is granted automatically only to applications signed with the exact same digital certificate (developer signing key) as the application that originally declared and defined the permission.
+• Attribute required: android:protectionLevel="signature".
+• The result: The "Wallet" app will gain access automatically without interruptions. The third-party application will receive a strict security rejection. No dialog is shown to the user in either scenario.
+
+
+Question 5
+
+
+Context: A student believes install-time permissions must also be requested through a dialog while the app is running.
+
+Task: Explain when and where install-time permissions are shown to the user, and when the system grants them. Which two kinds of permissions belong to this category?
+
+• Where and when shown: They are displayed to the user in the app store (Google Play Store) before downloading, or within the installation confirmation prompt window on legacy APIs. The operating system grants them automatically at the moment of installation.
+• Kinds of permissions: This category includes Normal permissions and Signature permissions.
+
+
+Question 6
+
+
+Context: An app ships with minSdk 21. On an Android 5.1 (API 22) device no dialog appears for CAMERA, yet the camera works. On Android 14 the dialog appears.
+
+Task: Explain the difference: in which version were runtime permissions introduced, and why is a runtime-type permission granted at install time on API 22? How does the lecture's granted(kind, sdk) model express this rule?
+
+• Introduction version: Runtime permissions were introduced in Android 6.0 (API 23).
+• Why no dialog appears on API 22: On legacy platforms (API 22 and below), the dynamic runtime request mechanism did not physically exist in the OS. Consequently, absolutely all declared permissions were approved in bulk during installation.
+• The granted(kind, sdk) model: If sdk < 23, any dynamic runtime permission execution block is bypassed by the operating system and automatically evaluates to true (treated as already granted).
+
+
+Question 7
+
+
+Context: The user denied the camera permission twice. The developer calls launch() again when the button is tapped, but nothing appears on screen and the permission comes back denied immediately.
+Task: Write the states of a runtime permission in order (not asked yet → denied once → denied twice). What is shouldShowRationale in each state and what should the code do? Where should the user be sent after two denials?
+
+• Runtime permission states sequence:
+	1. Not asked yet -> shouldShowRationale = false -> Display the standard permission trigger action button.
+	2. Denied once -> shouldShowRationale = true -> Display a custom UI explaining exactly why the app requires this access, accompanied by a retry button to trigger the dialog again.
+	3. Denied twice -> shouldShowRationale = false -> The system permission dialog is permanently blocked by the OS and will no longer pop up.
+
+• Where to redirect: After two denials, you must block the standard request call and instead present a button that redirects the user to the Application Details Settings screen (Settings.ACTION_APPLICATION_DETAILS_SETTINGS).
+
+
+Question 8
+
+
+Context: A new teammate is reading the CameraPermissionExample composable. It uses rememberPermissionState, @OptIn(ExperimentalPermissionsApi::class) and a when with three branches.
+Task: Write when each of the three branches (isGranted, shouldShowRationale, the remaining state) runs and what is shown on screen. Why does rememberPermissionState return state that survives recomposition? What does the ExperimentalPermissionsApi marker mean?
+
+• Branches of the when block:
+	• isGranted: Inflates the primary camera view finder and capturing interface.
+	• shouldShowRationale: Displays an explicit educational text string ("We need camera access to capture photos") and a "Try Again" action button.
+	• Remaining state (the else branch): Renders the initial "Grant Permission" launch button used for first-time runs.
+
+• State survival: rememberPermissionState caches and preserves the permission status inside the Compose composition context during UI lifecycle updates (recomposition), ensuring the app does not lose track of the ongoing authorization process.
+• The marker meaning: It indicates that the Compose Permissions API module is part of an experimental library utility suite and its structural contracts are subject to change in upcoming library releases.
+
+
+Question 9
+
+
+Context: The team does not want to add an extra library to the project.
+Task: Explain how to write the request without a library using rememberLauncherForActivityResult and ActivityResultContracts.RequestPermission(). Which call reads the current state (ContextCompat.checkSelfPermission), and which function tells you whether to show a rationale? Compare this approach with Accompanist.
+
+• Writing without libraries: You must implement a coupled arrangement utilizing rememberLauncherForActivityResult combined with the standard ActivityResultContracts.RequestPermission() contract.
+• Reading the state: The active permission state is evaluated using ContextCompat.checkSelfPermission().
+• Rationale verification: Checked using the ActivityCompat.shouldShowRequestPermissionRationale() platform utility.
+• Comparison: The native approach avoids inflating the final APK size and eliminates external library dependencies, though it requires writing boilerplate UI handling logic manually. Accompanist wraps this magically into a single declarative state line under the hood.
+
+
+Question 10
+
+
+Context: A map screen asks for precise (ACCESS_FINE_LOCATION) and approximate (ACCESS_COARSE_LOCATION) location together.
+Task: Explain what shape the RequestMultiplePermissions contract returns (Map<String, Boolean>) and how to read it. Why does the user see a single interface for these two permissions? What should the app do if the user denies both?
+
+• Return type format: It returns a structured Map<String, Boolean> instance, where the keys are the manifest permission string tokens and the values are boolean flags (true for granted, false for denied).
+• Why a single interface: Starting with Android 12, the platform merges requests for precise and approximate locations into a single grouped visual selection prompt interface to offer the user clear privacy granularity control.
+• Action on total denial: The app must safely degrade its feature list, lock map-related tracking dependencies, and politely display a fallback warning card clarifying that navigation is impossible without location access.
+
+
+Question 11
+
+
+Context: A developer tries to show a normal runtime dialog for SYSTEM_ALERT_WINDOW, but no dialog appears at all.
+Task: Explain how special permissions differ from ordinary runtime permissions. Complete the table: which call tells you whether each permission has been granted?
+
+• The key difference: Special permissions do not yield inside-the-app popup request windows. They require the user to physically flip a hardware/feature authorization toggle switch inside the native Android "Settings" system application.
+
+Permission	What it allows	Check call
+SYSTEM_ALERT_WINDOW	Displaying overlay windows over other active apps	Settings.canDrawOverlays(context)
+WRITE_SETTINGS	Modifying critical system settings (e.g., brightness, volume tones)	Settings.System.canWrite(context)
+MANAGE_EXTERNAL_STORAGE	All-files management access across the disk storage space	Environment.isExternalStorageManager()
+REQUEST_INSTALL_PACKAGES	Permission to install external third-party standalone APK files	context.packageManager.canRequestPackageInstalls()
+ACCESS_BACKGROUND_LOCATION	Accessing user location continuously in the background (when the app is closed)	ContextCompat.checkSelfPermission(...) == PERMISSION_GRANTED
+
+
+Question 12
+
+
+Context: The user enabled the overlay permission on the Settings screen and returned to the app, but the app still shows “no permission”. The code looks like this:
+OverlayScreen.kt ...
+Task: Explain the “check → open Settings → check again on return” pattern. Why does no callback reach your code when the user returns from Settings? Fix the code above using LifecycleEventEffect(Lifecycle.Event.ON_RESUME).
+
+• The design pattern core essence: Because modifying Special permissions forces us to send the user into the native system Settings application environment, our application falls back into the onPause lifecycle stage. The settings view does not send a direct structural result callback intent on close. The only way to know what choice the user made is to wait for the app to re-enter focus (onResume) and manually query the system flags again.
+• Why no callback occurs: Launching system settings starts an independent, detached platform activity. Standard back-navigation does not return actionable structural result intents, making lifecycle state monitoring the only reliable approach.
+• Fixed code logic: Implemented directly within the project's source tree repository using the LifecycleEventEffect(Lifecycle.Event.ON_RESUME) utility block.
+
+
+Question 13
+
+
+Context: A developer requests ACCESS_FINE_LOCATION and ACCESS_BACKGROUND_LOCATION together in a single launch call. Background location does not work.
+Task: Explain the two-step order from the lecture: what is requested in step 1, and when and why is step 2 called only after the first one is granted? Why is the second request wrapped in an SDK_INT >= Build.VERSION_CODES.Q check?
+
+• The order execution rule: Step 1 — request standard foreground location tokens (ACCESS_FINE_LOCATION). Step 2 — only after the user explicitly approves that step are you authorized to request the background token (ACCESS_BACKGROUND_LOCATION). Grouping them simultaneously triggers an immediate automatic rejection by the Android OS framework.
+• Why the SDK check matters: Background location as an independent authorization entity token was introduced only in Android 10 (Build.VERSION_CODES.Q). On legacy platforms, this separation did not exist, and foreground access automatically inherited background privileges.
+
+
+Question 14
+
+
+Context: An app requests five permissions together: two location, two contacts and one camera. The student expected five dialogs, but only three appeared.
+Task: Explain what a permission group is and how the system uses it to reduce the number of dialogs. Give the three group examples from the lecture. Why should your code not rely on group membership?
+
+• What a permission group is: It is a logical system categorization cluster that links related runtime permissions under a single umbrella (e.g., fine and coarse location are both members of the LOCATION group).
+• How it cuts down dialog fatigue: If an application asks for a permission and the user grants it, any subsequent explicit request for a different permission belonging to that same active group is auto-approved by the OS silently without launching a redundant popup window. This is why 5 permission items compressed into 3 visible prompt steps.
+• Three group examples: LOCATION, CONTACTS, CAMERA.
+• Why code must not rely on group maps: Permission bucket boundaries vary across different Android OS version releases. Designing code structures around side-effect group grants will cause application crashes or access failure blocks if Google updates group scopes on newer software rollouts. Always explicitly ask for every required permission independently.
+
+
+Question 15
+
+
+Context: A student wrote the dialog code for CAMERA but forgot to add <uses-permission> to the manifest.
+Task: Explain what happens. How does the declaration process differ for install-time and for runtime/special permissions? When is the android:maxSdkVersion attribute used (the WRITE_EXTERNAL_STORAGE example)?
+
+• The outcome: The native system popup confirmation dialog will fail to display on screen entirely. The execution wrapper call to launch() will instantly bounce back with a denied status payload (isGranted = false) because the OS filters out components that lack validation files.
+• Declaration differences: Adding an explicit declaration entry inside the manifest using <uses-permission> tags is strictly mandatory for all permission categories (install-time, runtime, and special permissions alike). The variant lies in processing: install-time items finalize setup tasks quietly on application deployment, whereas runtime and special categories require writing explicit state-tracking Kotlin layouts afterward to navigate the interactive user consent flows.
+• When android:maxSdkVersion is applied: This attribute tells the OS that a specific permission is only necessary up to a designated Android version cap. For example, WRITE_EXTERNAL_STORAGE uses android:maxSdkVersion="28" because Android 10 (API 29+) introduced Scoped Storage, which completely deprecates the need for global legacy disk writing authorizations on modern hardware.
+
+
+Question 16
+
+
+Context: An app uses the camera optionally. The store hid the app on devices without a camera (for example Android TV), but the team wants the app installable everywhere.
+Task: Explain how the true and false values of required in <uses-feature android:name="android.hardware.camera" android:required="..." /> affect store filtering. With required="false", what must the app check in code (hasSystemFeature)? Interpret the four results of the lecture's visibleOn model.
+• How required values modify filtering:
+
+	• required="true" — The Google Play Store architecture automatically filters out and completely hides the application build page from any device that lacks a built-in physical camera sensor.
+	• required="false" — Eliminates marker restrictions, allowing the application package to be downloaded and installed across all devices regardless of camera equipment.
+
+• The hasSystemFeature code check: If marked as false, developers must guard functional code paths by programmatically testing hardware availability before calling camera APIs: context.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY).
+• Interpretation of the 4 visibleOn model scenarios:
+
+	• Scenario 1 (Visible & Hardware Present): The app is discoverable on the store, and the physical camera component is present \(\rightarrow \) The camera features are enabled, and runtime prompts proceed normally.
+	• Scenario 2 (Visible & Hardware Missing): The app is discoverable on the store, but the hardware is absent \(\rightarrow \) UI action components are hidden programmatically to ensure a crash-free user experience.
+	• Scenario 3 (Hidden in Store): The device lacks a camera, and the manifest insists on required="true" \(\rightarrow \) The user cannot find, view, or install the app build from the storefront.
+	• Scenario 4 (Feature Mismatch): The application relies on micro hardware features (like sensor macro autofocus tracking lenses) \(\rightarrow \) The store declares the device profile incompatible if the hardware specs do not meet the minimum baseline requirements.
+
+
+Question 17
+
+
+Context: A developer reads the camera state once and stores it. The user had chosen “Only this time”. After the app goes to the background and comes back an hour later, the camera button looks enabled but does not work.
+CameraScreen.kt ...
+Task: Explain how a one-time permission (Android 11, API 30) works and when it is revoked. Why should you never cache “granted” forever? Fix the code using the ON_RESUME solution from the lecture.
+
+• How one-time permissions operate: A one-time permission grant delivers a temporary operational access window. The Android OS revokes the granted permission state automatically as soon as the application processes slide into background standby for an extended duration, or if its active window context is dropped out of view.
+• The caching hazard: Using a raw remember { ... } block without reactive keys evaluates the permission flag exactly once during the initial view tree inflation layout. Re-entering from standby means the OS status has updated to "denied," but the static memory cache variables remain stale (true), producing non-functional UI buttons.
+• Fixed code logic using ON_RESUME: Solved dynamically by hooking up state mutations inside the LifecycleEventEffect(Lifecycle.Event.ON_RESUME) lifecycle observer context to pull fresh permission check payloads whenever focus shifts back.
+
+
+Question 18
+
+
+Context: A user has not used the app for several months. When they return, a permission granted earlier no longer works. On the other hand, in the new version the app no longer needs READ_CONTACTS.
+Task: (1) Explain what auto-reset (Android 11+) does and what the app should do; how can the user turn it off for the app (ACTION_AUTO_REVOKE_PERMISSIONS)? (2) On Android 13 (API 33), which function removes runtime permissions you no longer need (revokeSelfPermissionOnKill), and why is that good for the user?
+
+• The auto-reset system behavior: If an application remains unused or dormant for several consecutive months, the Android system dynamically strips away its previously approved runtime permission sets to prevent background tracking exploits. The application must treat everyday startups carefully and be fully prepared to handle requests as if it were a first-time launch.
+• The bypass path: The app can guide users to the app settings profile window using an explicit Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS) action payload, allowing them to manually switch off the native automatic revoke toggle.
+• The revokeSelfPermissionOnKill functionality: Starting with Android 13, applications can programmatically execute a clean un-grant action using context.revokeSelfPermissionOnKill(Manifest.permission.READ_CONTACTS).
+• Why it benefits the user: This heavily amplifies ongoing privacy compliance architectures. Users have verifiable peace of mind knowing the application actively disowns obsolete tracking permissions when a feature update removes the need for data collection.
+
+
+Question 19
+
+
+Context: You are asked to write a short summary of how permissions changed across Android versions.
+Task: For API 23, API 30 and API 33, write the main change in one sentence each. Explain how POST_NOTIFICATIONS became a runtime permission in Android 13 and why you should not request it on versions below API 33.
+
+• Main platform updates summary:
+	• API 23 (Android 6.0): Rolled out the dynamic Runtime Permissions architecture model, replacing legacy bulk install-time check validations.
+	• API 30 (Android 11): Implemented temporary one-time execution permissions ("Only this time") alongside automatic background permission resets for dormant apps.
+	• API 33 (Android 13): Isolated notification alerts behind a strict dangerous runtime verification gate via the introduction of the POST_NOTIFICATIONS token.
+
+• The POST_NOTIFICATIONS rule: Prior to Android 13, apps possessed native privileges to dispatch push alerts instantly post-installation. API 33 locked this behind explicit user runtime choices. Requesting this on devices below API 33 is unnecessary because the platform flag does not exist on legacy systems, which safely default to granting notification visibility implicitly.
+Let me know if you need to generate the complete implementation scripts or the README summary report layout for the hands-on coding tasks (Tasks 1 through 6) to finish up your assignment package submission.
+
